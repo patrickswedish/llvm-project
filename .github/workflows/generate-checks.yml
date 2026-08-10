@@ -1,0 +1,62 @@
+name: Generate CHECK lines and push
+
+on:
+  workflow_dispatch:
+
+  permissions:
+    contents: write
+
+    jobs:
+      generate:
+          runs-on: ubuntu-latest
+              steps:
+                    - uses: actions/checkout@v4
+                            with:
+                                      ref: agent/x86-non-pow2-int-div
+                                                fetch-depth: 0
+
+                                                      - name: Install build dependencies
+                                                              run: |
+                                                                        sudo apt-get update
+                                                                                  sudo apt-get install -y cmake ninja-build python3
+
+                                                                                        - name: Configure LLVM (X86 only)
+                                                                                                run: |
+                                                                                                          cmake -S llvm -B build -G Ninja \
+                                                                                                                      -DCMAKE_BUILD_TYPE=Release \
+                                                                                                                                  -DLLVM_TARGETS_TO_BUILD=X86 \
+                                                                                                                                              -DLLVM_ENABLE_PROJECTS="" \
+                                                                                                                                                          -DLLVM_BUILD_TOOLS=ON \
+                                                                                                                                                                      -DLLVM_INCLUDE_TESTS=OFF \
+                                                                                                                                                                                  -DLLVM_INCLUDE_BENCHMARKS=OFF \
+                                                                                                                                                                                              -DLLVM_INCLUDE_EXAMPLES=OFF
+                                                                                                                                                                                              
+                                                                                                                                                                                                    - name: Build llc and FileCheck
+                                                                                                                                                                                                            run: ninja -C build llc FileCheck count not
+                                                                                                                                                                                                            
+                                                                                                                                                                                                                  - name: Regenerate FileCheck assertions
+                                                                                                                                                                                                                          run: |
+                                                                                                                                                                                                                                    python3 llvm/utils/update_llc_test_checks.py \
+                                                                                                                                                                                                                                                --llc-binary build/bin/llc \
+                                                                                                                                                                                                                                                            llvm/test/CodeGen/X86/vector-idiv-udiv-256.ll
+                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                  - name: Show generated diff
+                                                                                                                                                                                                                                                                          run: git diff llvm/test/CodeGen/X86/vector-idiv-udiv-256.ll
+                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                - name: Remove this workflow and commit
+                                                                                                                                                                                                                                                                                        run: |
+                                                                                                                                                                                                                                                                                                  git config user.name "patrickswedish"
+                                                                                                                                                                                                                                                                                                            git config user.email "patrickswedish@users.noreply.github.com"
+                                                                                                                                                                                                                                                                                                                      rm -f .github/workflows/generate-checks.yml
+                                                                                                                                                                                                                                                                                                                                git add llvm/test/CodeGen/X86/vector-idiv-udiv-256.ll .github/workflows/generate-checks.yml
+                                                                                                                                                                                                                                                                                                                                          if git diff --cached --quiet; then
+                                                                                                                                                                                                                                                                                                                                                      echo "No changes to commit"
+                                                                                                                                                                                                                                                                                                                                                                else
+                                                                                                                                                                                                                                                                                                                                                                            git commit -m "[X86] Regenerate test CHECK lines via update_llc_test_checks.py
+                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                            Run update_llc_test_checks.py to generate proper FileCheck assertions
+                                                                                                                                                                                                                                                                                                                                                                            for the non-power-of-two vector udiv test functions in
+                                                                                                                                                                                                                                                                                                                                                                            vector-idiv-udiv-256.ll, covering AVX1, AVX2, and AVX512BW targets."
+                                                                                                                                                                                                                                                                                                                                                                                        git push origin agent/x86-non-pow2-int-div
+                                                                                                                                                                                                                                                                                                                                                                                                  fi
+                                                                                                                                                                                                                                                                                                                                                                                                  
