@@ -443,6 +443,19 @@ define <8 x i32> @test_divv_8i32(<8 x i32> %a, <8 x i32> %b) nounwind {
   ret <8 x i32> %res
 }
 
+
+define <7 x i32> @test_divv_7i32(<7 x i32> %a, <7 x i32> %b) nounwind {
+  %res = udiv <7 x i32> %a, %b
+  ret <7 x i32> %res
+}
+
+define i32 @test_divv_7i32_extract0(<7 x i32> %a, <7 x i32> %b) nounwind {
+  %res = udiv <7 x i32> %a, %b
+  %elt = extractelement <7 x i32> %res, i32 0
+  ret i32 %elt
+}
+
+
 ;
 ; urem by 7
 ;
