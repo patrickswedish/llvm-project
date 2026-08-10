@@ -1,0 +1,69 @@
+name: Finalize X86 PR from fork base
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]' && github.event.pull_request.head.ref == 'agent/x86-non-pow2-int-div'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout contribution branch
+        uses: actions/checkout@v4
+        with:
+          repository: patrickswedish/llvm-project
+          ref: agent/x86-non-pow2-int-div
+          fetch-depth: 0
+
+      - name: Configure repository
+        run: |
+          git config user.name "Patrick Ribbsaeter"
+          git config user.email "233187023+patrickswedish@users.noreply.github.com"
+          git remote add upstream https://github.com/llvm/llvm-project.git || true
+          git fetch upstream main
+
+      - name: Configure LLVM
+        run: |
+          cmake -S llvm -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLVM_TARGETS_TO_BUILD=X86 \
+            -DLLVM_ENABLE_ASSERTIONS=ON
+
+      - name: Build llc
+        run: cmake --build build --target llc -j2
+
+      - name: Regenerate FileCheck assertions
+        run: |
+          python3 llvm/utils/update_llc_test_checks.py \
+            --llc-binary build/bin/llc \
+            llvm/test/CodeGen/X86/vector-idiv-udiv-256.ll
+
+      - name: Run focused X86 regression suite
+        run: |
+          build/bin/llvm-lit -v \
+            llvm/test/CodeGen/X86/vector-idiv-udiv-256.ll \
+            llvm/test/CodeGen/X86/vector-idiv-udiv-128.ll \
+            llvm/test/CodeGen/X86/vector-idiv-udiv-512.ll \
+            llvm/test/CodeGen/X86/vector-idiv-v2i32.ll \
+            llvm/test/CodeGen/X86/vector-idiv.ll \
+            llvm/test/CodeGen/X86/scalar_widen_div.ll
+          git diff --check
+
+      - name: Squash and push clean contribution
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -f .github/workflows/finalize-x86-pr.yml
+          BASE=$(git merge-base HEAD upstream/main)
+          git add -A
+          git reset --soft "$BASE"
+          git add -A
+          git commit -m "[X86] Vectorize non-power-of-two integer division"
+          git push --force https://x-access-token:${GH_TOKEN}@github.com/patrickswedish/llvm-project.git HEAD:agent/x86-non-pow2-int-div
