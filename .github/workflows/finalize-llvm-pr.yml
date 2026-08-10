@@ -19,16 +19,12 @@ jobs:
           ref: agent/x86-non-pow2-int-div
           fetch-depth: 0
 
-      - name: Configure git
+      - name: Configure git and fetch upstream
         run: |
           git config user.name "Patrick Ribbsaeter"
           git config user.email "233187023+patrickswedish@users.noreply.github.com"
           git remote add upstream https://github.com/llvm/llvm-project.git || true
           git fetch upstream main
-
-      - name: Apply all reviewer-requested changes
-        run: |
-          python3 .github/scripts/apply_llvm_review_fixes.py
 
       - name: Configure LLVM
         run: |
@@ -40,15 +36,10 @@ jobs:
       - name: Build llc
         run: cmake --build build --target llc -j2
 
-      - name: Regenerate FileCheck assertions
+      - name: Regenerate complete test checks
         run: |
           python3 llvm/utils/update_llc_test_checks.py \
             --llc-binary build/bin/llc \
-            --function test_divv_7i32 \
-            llvm/test/CodeGen/X86/vector-idiv-udiv-256.ll
-          python3 llvm/utils/update_llc_test_checks.py \
-            --llc-binary build/bin/llc \
-            --function test_divv_7i32_extract0 \
             llvm/test/CodeGen/X86/vector-idiv-udiv-256.ll
 
       - name: Run focused X86 regression suite
@@ -62,12 +53,10 @@ jobs:
             llvm/test/CodeGen/X86/scalar_widen_div.ll
           git diff --check
 
-      - name: Create clean contribution commit
+      - name: Recreate one clean contribution commit
         run: |
-          rm -f .github/workflows/apply-llvm-review-fixes.yml
-          rm -f .github/scripts/apply_llvm_review_fixes.py
           BASE=$(git merge-base HEAD upstream/main)
-          git add -A
+          git add llvm/lib/Target/X86/X86ISelLowering.cpp llvm/test/CodeGen/X86/vector-idiv-udiv-256.ll
           git reset --soft "$BASE"
           git add -A
           git commit -m "[X86] Vectorize non-power-of-two integer division"
