@@ -20,14 +20,13 @@ jobs:
         with:
           repository: patrickswedish/llvm-project
           ref: agent/x86-non-pow2-int-div
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Configure repository
         run: |
           git config user.name "Patrick Ribbsaeter"
           git config user.email "233187023+patrickswedish@users.noreply.github.com"
-          git remote add upstream https://github.com/llvm/llvm-project.git || true
-          git fetch upstream main
+          git fetch --depth=1 origin 878be2fadd3a1695eec2018e7f2001859ff87e4f
 
       - name: Configure LLVM
         run: |
@@ -37,7 +36,7 @@ jobs:
             -DLLVM_ENABLE_ASSERTIONS=ON
 
       - name: Build llc
-        run: cmake --build build --target llc -j2
+        run: cmake --build build --target llc -j4
 
       - name: Regenerate FileCheck assertions
         run: |
@@ -61,7 +60,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           rm -f .github/workflows/finalize-x86-pr.yml
-          BASE=$(git merge-base HEAD upstream/main)
+          BASE=878be2fadd3a1695eec2018e7f2001859ff87e4f
           git add -A
           git reset --soft "$BASE"
           git add -A
