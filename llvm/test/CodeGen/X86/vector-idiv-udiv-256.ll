@@ -455,6 +455,18 @@ define i32 @test_divv_7i32_extract0(<7 x i32> %a, <7 x i32> %b) nounwind {
   ret i32 %elt
 }
 
+define void @div_extract(ptr %dst, ptr %lhs, ptr %rhs) nounwind {
+  %a = load <2 x i8>, ptr %lhs
+  %b = load <2 x i8>, ptr %rhs
+  %quot = udiv <2 x i8> %a, %b
+  %elt0 = extractelement <2 x i8> %quot, i64 0
+  store i8 %elt0, ptr %dst, align 1
+  %next = getelementptr inbounds nuw i8, ptr %dst, i64 1
+  %elt1 = extractelement <2 x i8> %quot, i64 1
+  store i8 %elt1, ptr %next, align 1
+  ret void
+}
+
 
 ;
 ; urem by 7
